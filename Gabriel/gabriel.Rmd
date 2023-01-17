@@ -38,7 +38,7 @@ output:
 
 
 ```{r}
-datafile <- read.csv("WiscNursingHome.csv")
+datafile <- read.csv("../WiscNursingHome.csv")
 datafile
 ```
 
