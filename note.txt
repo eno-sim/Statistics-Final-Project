@@ -21,4 +21,7 @@ Osservazioni di anni diversi:
 
 Modelli:
 
-- paragonare modelli con F statistic
+- paragonare modelli con F statistic(ricordare che vale solo per modelli nested) e AIC (ricordare che vale solo per modelli fittati
+  sullo stesso dataset: no modelli TPY e log(TPY), no modelli su un singolo anno e su tutti)
+
+- valutare se usare glm gaussiani

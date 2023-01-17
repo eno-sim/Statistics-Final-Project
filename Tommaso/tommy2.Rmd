@@ -1,0 +1,156 @@
+---
+title: "Untitled"
+author: "tommaso tarchi"
+date: "2023-01-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+datafile <- read.csv("../WiscNursingHome.csv")
+datafile <- na.omit(datafile)
+
+data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+```
+
+```{r}
+library(ggplot2)
+library(GGally)
+```
+
+For the moment we just work on the data coming from the 2000 survey, to avoid dependency between observations.
+
+
+## Quantitative variables
+
+First we consider just the quantitative variables.
+
+Let's see the correlation:
+```{r}
+ggpairs(subset(data_2000, select = c(SQRFOOT, NUMBED, TPY)))
+```
+
+We can see the strong correlation between all the three variables. In particular we see the almost perfectly linear correlation between TPY and NUMBED.
+
+
+### Simple linear models
+
+Being NUMBED the most linearly correlated variable w.r.t. PTY, we start modelling PTY using NUMBED and subsequently add SQRFOOT and the interaction between the two:
+```{r}
+summary(lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
+```
+
+```{r}
+anova(lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
+```
+
+As we can see, despite being NUMBED and SQRFOOT highly correlated, it is worth including the second variable to the model. Adding the interaction, instead, seems not to give any important information to the model.
+
+We can also use Akaike information criterium to check this result (here we compare some of the possible combinations):
+```{r}
+AIC(lm(TPY ~ NUMBED, data = data_2000),
+    lm(TPY ~ SQRFOOT, data = data_2000),
+    lm(TPY ~ NUMBED + SQRFOOT, data = data_2000),
+    lm(TPY ~ NUMBED:SQRFOOT, data = data_2000),
+    lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000),
+    lm(TPY ~ NUMBED + NUMBED:SQRFOOT, data = data_2000),
+    lm(TPY ~ SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
+```
+
+Again the analysis indicates NUMBED as the most relevant variable and the interaction between NUMBED and SQRFOOT as basically non relevant.
+
+
+### Models with log-transformed predictor
+
+We can try to improve the model by log-transforming the predictors:
+```{r}
+AIC(lm(TPY ~ log(NUMBED), data = data_2000),
+    lm(TPY ~ log(SQRFOOT), data = data_2000),
+    lm(TPY ~ log(NUMBED) + log(SQRFOOT), data = data_2000),
+    lm(TPY ~ log(NUMBED) + SQRFOOT, data = data_2000),
+    lm(TPY ~ NUMBED + log(SQRFOOT), data = data_2000))
+```
+
+We cannot see any improvement.
+
+
+### Best simple linear model
+
+At the moment, the best model seems to be the one with just the single linear contributions of the two variables. Let's analyze the residuals:
+```{r}
+fit.linear <- lm(TPY ~ NUMBED + SQRFOOT, data = data_2000)
+
+summary(fit.linear)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.linear)
+```
+
+
+The residuals are not exactly as we would expect from a good linear model.
+
+Let's now look at the distribution of the data:
+```{r}
+par(mfrow = c(2, 2))
+hist(data_2000$TPY, xlab = "TPY", freq = TRUE)
+hist(data_2000$NUMBED, xlab = "NUMBED", freq = TRUE)
+hist(data_2000$SQRFOOT, xlab = "SQRFOOT", freq = TRUE)
+```
+
+As we can see all of the variables are strongly skewed.
+
+
+### Models with log-transformed TPY
+
+We see that also TPY is strongly skewed, therefore we can try to model its log-transform:
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), data = data_2000))
+```
+
+```{r}
+anova(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), data = data_2000))
+```
+
+In this case even the main effect of SQRFOOT seems to be non relevant. Let's give a look at the plot of the model with just log(NUMBED) and with just log(SQRFOOT):
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED), data = data_2000))
+```
+```{r}
+summary(lm(log(TPY) ~ log(SQRFOOT), data = data_2000))
+```
+
+And to their residuals:
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED), data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(SQRFOOT), data = data_2000))
+```
+
+```{r}
+AIC(lm(log(TPY) ~ log(NUMBED), data = data_2000), lm(log(TPY) ~ log(SQRFOOT), data = data_2000))
+```
+
+Again it is confirmed that the most relevant predictor is NUMBED, but the residuals are still not good enough. On the other hand SQRFOOT seems to be less relevant but with better residuals (apart from a high leverage outlier).
+
+We can also try a kind of mixed model:
+```{r}
+summary(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
+```
+```{r}
+AIC(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
+```
