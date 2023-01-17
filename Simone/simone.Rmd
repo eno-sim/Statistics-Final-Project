@@ -1,0 +1,133 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+**Brief Introduction**
+
+*The nursing home data are provided by the Wisconsin Department of Health and Family Services (DHFS). The State of Wisconsin Medicaid program funds nursing home care for individuals qualifying on the basis of need and financial status. As part of the conditions for participation, Medicaid-certified nursing homes must file an annual cost report to DHFS, summarizing the volume and cost of care provided to all of its residents, Medicaid funded and otherwise. These cost reports are audited by DHFS staff and form the basis for facility-specific Medicaid daily payment rates for subsequent periods. Note: A nursing home is a facility for the residential care of elderly or disabled people.*
+
+**Objective**
+
+*The aim of this project is to develop a predictive model that provide reliable utilization forecast to update their Medicaid funding rate schedule of nursing facilities.*
+
+**Data**
+
+*The data here is in cost report years 2000 and 2001. There are 362 facilities in 2000 and 355 facilities in 2001. Typically, utilization of nursing home care is measured in patient days (“patient days” is the number of days each patient was in the facility, summed over all patients).*
+
+**Variables**
+
+| File Name:WiscNursingHome         | Number of obs: 717        | Number of variables: 12                       |
+|-----------------------------------|---------------------------|-----------------------------------------------|
+| **Variable (type of variable)**   | **Number of Obs Missing** | **Description**                               |
+| hospID (categorical)              |                           | Hospital identification number                |
+| CRYEAR (categorical)              |                           | Cost report year                              |
+| TPY (quantitative continuous)     |                           | Total patient years                           |
+| NUMBED (quantitative discrete)    |                           | Number of beds                                |
+| SQRFOOT (quantitative continuous) |    10                     | Square footage of the nursing home            |
+| MSA (categorical)                 |                           | Metropol Statist Area code, 1-13, 0 for rural |
+| URBAN (Binary)                    |                           | 1 if urban, 0 if rural                        |
+| PRO (Binary)                      |                           | 1 if for profit, 0 for non-profit             |
+| TAXEXEMPT (Binary)                |                           | 1 if tax-exempt                               |
+| SELFFUNDINS (Binary)              |                           | 1 if self-funded for insurance                |
+| MCERT (Binary)                    |                           | 1 if Medicare certified                       |
+| ORGSTR (categorical)              |                           | 1 for profit, 2 for tax-exempt,3 for gov unit |
+
+
+
+
+```{r}
+datafile <- read.csv("WiscNursingHome.csv")
+
+```
+
+
+**Analyzing variables' distributions**
+```{r}
+# Set the layout of the graph
+par(mfrow = c(3,4))
+
+# Draw the first histogram
+hist(datafile$TPY, main = "Histogram of TPY", xlab = "TPY", col = "blue")
+
+# Draw the second histogram
+hist(datafile$NUMBED, main = "Histogram of NUMBED", xlab = "NUMBED", col = "blue")
+
+# Draw the third histogram
+hist(datafile$SQRFOOT, main = "Histogram of SQRFOOT", xlab = "SQRFOOT", col = "blue")
+hist(datafile$MSA, main = "Histogram of MSA", xlab = "MSA", col = "purple")
+hist(datafile$URBAN, main = "Histogram of URBAN", xlab = "URBAN", col = "green")
+hist(datafile$PRO, main = "Histogram of PRO", xlab = "PRO", col = "green")
+hist(datafile$TAXEXEMPT, main = "Histogram of TAXEXEMPT", xlab = "TAXEXEMPT", col = "green")
+hist(datafile$SELFFUNDINS, main = "Histogram of SELFFUNDINS", xlab = "SELFFUNDINS", col = "green")
+hist(datafile$MCERT, main = "Histogram of MCERT", xlab = "MCERT", col = "green")
+hist(datafile$ORGSTR, main = "Histogram of ORGSTR", xlab = "ORGSTR", col = "purple")
+```
+
+```{r}
+library(dplyr)
+#DATA CLEANING
+datafile <- na.omit(datafile) #drop NAs
+#datafile <- datafile %>% filter(MCERT == 1) 
+#select only rows for Medicaid-certified nurse houses
+datafile$UTILIZATION_RATE <- datafile$TPY / datafile$NUMBED
+
+```
+
+```{r}
+#Transform into categorical variables
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+```
+
+
+
+
+```{r}
+library(corrplot)
+
+# Calculate the correlation matrix
+corr_matrix <- cor(datafile[, c("TPY","NUMBED","SQRFOOT")])
+
+# Plot the correlation matrix
+corrplot(corr_matrix, method = "color", type = "upper", tl.col = "black", tl.srt = 45)
+
+```
+
+
+```{r}
+library(ggplot2)
+# install.packages("GGally")
+library(GGally)
+ggpairs(subset(datafile, select = c(TPY, SQRFOOT, NUMBED)))
+
+
+
+```
+
+```{r}
+years_comparison <- datafile %>% 
+  group_by(hospID) %>%
+  summarize(SQRFOOT_2000 =  SQRFOOT[CRYEAR == 2000], SQRFOOT_2001 =  SQRFOOT[CRYEAR == 2001],
+            NUMBED_2000 = NUMBED[CRYEAR == 2000], NUMBED_2001 = NUMBED[CRYEAR == 2001],
+            TPY_2000 =  TPY[CRYEAR == 2000], TPY_2001 =  TPY[CRYEAR == 2001],
+            NUMBED_2000 = NUMBED[CRYEAR == 2000], NUMBED_2001 = NUMBED[CRYEAR == 2001],
+            MSA_2000 =  MSA[CRYEAR == 2000], MSA_2001 =  MSA[CRYEAR == 2001],
+            URBAN_2000 = URBAN[CRYEAR == 2000], URBAN_2001 = URBAN[CRYEAR == 2001],
+            TAXEXEMPT_2000 =  TAXEXEMPT[CRYEAR == 2000], TAXEXEMPT_2001 =  TAXEXEMPT[CRYEAR == 2001],
+            PRO_2000 = PRO[CRYEAR == 2000], PRO_2001 = PRO[CRYEAR == 2001],
+            MCERT_2000 =  MCERT[CRYEAR == 2000], MCERT_2001 =  MCERT[CRYEAR == 2001],
+            SELFFUNDINS_2000 = SELFFUNDINS[CRYEAR == 2000], SELFFUNDINS_2001 = SELFFUNDINS[CRYEAR == 2001],
+            ORGSTR_2000 =  ORGSTR[CRYEAR == 2000], ORGSTR_2001 =  ORGSTR[CRYEAR == 2001])
+           
+
+```
+```{r}
+years_comparison$NUMBED_diff <- years_comparison$NUMBED_2001-years_comparison$NUMBED_2000
+years_comparison$SQRFOOT_diff <- years_comparison$SQRFOOT_2001-years_comparison$SQRFOOT_2000
+```
+
+```{r}
+years_comparison
+```
