@@ -69,8 +69,26 @@ fit7 <- lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000)
 summary(fit7)
 ```
 
-
 ```{r}
-AIC(fit0, fit1, fit2, fit3, fit4, fit5, fit6, fit7)
+fit.log1 <- lm(TPY ~ log(NUMBED) + SQRFOOT, data = data_2000)
+
+summary(fit.log1)
 ```
 
+```{r}
+fit.log2 <- lm(TPY ~ NUMBED + log(SQRFOOT), data = data_2000)
+
+summary(fit.log2)
+```
+
+```{r}
+fit.log3 <- lm(TPY ~ log(NUMBED) + log(SQRFOOT), data = data_2000)
+
+summary(fit.log3)
+```
+
+
+
+```{r}
+AIC(fit0, fit1, fit2, fit3, fit4, fit5, fit6, fit7, fit.log1, fit.log2, fit.log3)
+```
