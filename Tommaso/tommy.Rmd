@@ -11,12 +11,66 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 datafile <- read.csv("../WiscNursingHome.csv")
+datafile <- na.omit(datafile)
+
+data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+data_2001 <- datafile[datafile$CRYEAR == 2001, ]
 ```
 
 
-## variables' effects on TPY
+## models
 
 ```{r}
+fit0 <- lm(TPY ~ 1, data = data_2000)
 
+summary(fit0)
+```
+
+
+```{r}
+fit1 <- lm(TPY ~ NUMBED + SQRFOOT + factor(MSA) + SELFFUNDINS + factor(ORGSTR), data = data_2000)
+
+summary(fit1)
+```
+
+```{r}
+fit2 <- lm(TPY ~ NUMBED + SQRFOOT + URBAN + SELFFUNDINS + factor(ORGSTR), data = data_2000)
+
+summary(fit2)
+```
+
+```{r}
+fit3 <- lm(TPY ~ NUMBED + SQRFOOT + URBAN + SELFFUNDINS + PRO + TAXEXEMPT, data = data_2000)
+
+summary(fit3)
+```
+
+```{r}
+fit4 <- lm(TPY ~ URBAN + SELFFUNDINS + factor(ORGSTR), data = data_2000)
+
+summary(fit4)
+```
+
+```{r}
+fit5 <- lm(TPY ~ NUMBED + SQRFOOT, data = data_2000)
+
+summary(fit5)
+```
+
+```{r}
+fit6 <- lm(TPY ~ NUMBED, data = data_2000)
+
+summary(fit6)
+```
+
+```{r}
+fit7 <- lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000)
+
+summary(fit7)
+```
+
+
+```{r}
+AIC(fit0, fit1, fit2, fit3, fit4, fit5, fit6, fit7)
 ```
 

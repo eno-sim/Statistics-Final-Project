@@ -1,0 +1,24 @@
+Variabili:
+
+- MSA specifica le informazioni contenute in URBAN (sono variabili alternative nel modello)
+
+- le informazioni espresse da PRO e TAXEXEMPT sono contenute anche in ORGSTR
+
+- possiamo scegliere le variabili più significative usando LASSO o con Ridge regression
+
+
+Valori mancanti:
+
+- a 10 osservazioni manca SQRFOOT; possiamo rimuoverle inizialmente e riaggiungerle solo se SQRFOOT non è rilevante
+
+
+Osservazioni di anni diversi:
+
+- opzione 1: fittiamo il modello su tutti i dati
+
+- opzione 2: fittiamo il modello sui dati di un anno e li testiamo su quelli del'altro
+
+
+Modelli:
+
+- paragonare modelli con F statistic
