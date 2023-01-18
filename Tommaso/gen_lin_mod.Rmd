@@ -1,0 +1,79 @@
+---
+title: "Generalized linear models"
+author: "tommaso tarchi"
+date: "2023-01-18"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+## importing the dataset and omitting the missing values
+datafile <- read.csv("../WiscNursingHome.csv")
+datafile <- na.omit(datafile)
+
+## dividing data from different years
+data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+```
+
+
+## Gamma models
+
+
+### With outliers
+
+```{r}
+summary(glm(TPY ~ NUMBED + SQRFOOT, data = data_2000, family = Gamma(link = "log")))
+```
+```{r}
+summary(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_2000, family = Gamma(link = "identity")))
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_2000, family = Gamma(link = "log")))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_2000, family = Gamma(link = "identity")))
+```
+
+Still outliers' residuals do not respect homoscedasticity and normality.
+
+### Without outliers
+
+```{r}
+data_2000$UTILIZATION_RATE <- data_2000$TPY / data_2000$NUMBED
+summary(data_2000$UTILIZATION_RATE)
+
+data_trunc <- data_2000[data_2000$UTILIZATION_RATE > 0.89 & data_2000$UTILIZATION_RATE < 0.96, ]
+```
+
+```{r}
+summary(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc, family = Gamma(link = "log")))
+```
+```{r}
+summary(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc,
+            family = Gamma(link = "identity")))
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc, family = Gamma(link = "log")))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc, family = Gamma(link = "identity")))
+```
+
+As with linear models, taking out the outliers solves homoscedasticity but not normality.

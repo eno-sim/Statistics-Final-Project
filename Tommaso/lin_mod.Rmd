@@ -89,10 +89,9 @@ We cannot see any improvement.
 
 ### Graphical analysis
 
-At the moment, the best model seems to be the one with just the single linear contributions of the two variables. Let's analyze the residuals:
+At the moment, the best model (according to AIC) seems to be the one with just the single linear contributions of the two variables. Let's analyze the residuals:
 ```{r}
 fit.linear <- lm(TPY ~ NUMBED + SQRFOOT, data = data_2000)
-
 summary(fit.linear)
 ```
 ```{r}
@@ -194,6 +193,28 @@ AIC(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
 But the results are not encouraging.
 
 
+### Models with inverse and sqrt trasformed TPY
+
+To fix residuals we can also try:
+```{r}
+summary(lm(I(1/TPY) ~ NUMBED + SQRFOOT, data = data_2000))
+```
+```{r}
+summary(lm(I(sqrt(TPY)) ~ NUMBED + SQRFOOT, data = data_2000))
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(I(1/TPY) ~ NUMBED + SQRFOOT, data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(I(sqrt(TPY)) ~ NUMBED + SQRFOOT, data = data_2000))
+```
+
+the results are even worse than before.
+
+
 ## Adding categorical variables
 
 By using the numerical variables only we were not able to obtain a good model. In particular it was not possible to build a model in which all the characteristic assumptions for linear models were met. We can then try to improve our model by adding the categorical predictors.
@@ -210,20 +231,60 @@ We can also visualize the previous two observations by graphs:
 ```
 
 
-### More generic variables
-
 For the moment let's exclude the variable MCERT and use the most "generic" variables. As a baseline we take the linear model with the higher AIC score.
 ```{r}
 summary(lm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000))
 ```
-
 ```{r}
 anova(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000,
           family = gaussian), test = "Chisq")
 ```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO,
+        data = data_2000))
+```
+
+Let's now try with the log-transformed variables:
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + TAXEXEMPT + SELFFUNDINS + URBAN + PRO,
+           data = data_2000))
+```
+```{r}
+anova(glm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + TAXEXEMPT + SELFFUNDINS + URBAN + PRO,
+          data = data_2000, family = gaussian), test = "Chisq")
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + TAXEXEMPT + SELFFUNDINS + URBAN + PRO,
+        data = data_2000))
+```
+
+Better, but still the outliers are a problem.
+
+Notice that TAXEXEMPT seems to be the only relevant categorical variable. let's try to put it as last to check:
+```{r}
+anova(glm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + SELFFUNDINS + URBAN + PRO + TAXEXEMPT,
+          data = data_2000, family = gaussian), test = "Chisq")
+```
+
+The only categorical variables that seem to be significant are then PRO and TAXEXEMPT.
+
+
+## Best model
+
+In the end the only acceptable model (that is: the only model whose residuals' plots confirm that the linear models' hypoteses are met) seems to be the following.
+```{r}
+fit.best <- lm(log(TPY) ~ log(SQRFOOT) + TAXEXEMPT + PRO, data = data_2000)
+summary(fit.best)
+```
+```{r}
+anova(fit.best, test = "Chisq")
+```
 
 ```{r}
 par(mfrow = c(2, 2))
-plot(lm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000))
+plot(fit.best)
 ```
 
+***Capire se TAXEXEMPT e PRO sono correlate. In tal caso basta metterne una***
