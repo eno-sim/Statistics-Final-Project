@@ -199,8 +199,28 @@ ggpairs(subset(datafile_log, select = c(TPY_log, NUMBED_log, SQRFOOT_log)))
 *As we can see in the pair plot chart, the values for the correlation between the log transformed variables are approximately the same than the original ones. However, increase the linear association of SQRFOOT with variables TPY and NUMBED*
 
 ##### *Analysis of categorical variables*
+Let's analyse the relationship between explained variable TPY and categorical variables of the dataset. 
 
 
+```{r}
+par(mfrow=c(1,2))
+boxplot(TPY ~ MSA, data = datafile, horizontal = FALSE, 
+        xlab = "MSA", ylab = "TPY")
+boxplot(TPY ~ URBAN, data = datafile, horizontal = FALSE, 
+        xlab = "URBAN", ylab = "TPY")
+```
+
+```{r}
+par(mfrow=c(2,2))
+boxplot(TPY ~ SELFFUNDINS, data = datafile, horizontal = TRUE, 
+        ylab = "SELFFUNDINS", xlab = "TPY")
+boxplot(TPY ~ TAXEXEMPT, data = datafile, horizontal = TRUE, 
+        ylab = "TAXEXEMPT", xlab = "TPY")
+boxplot(TPY ~ PRO, data = datafile, horizontal = TRUE, 
+        xlab = "TPY", ylab = "PRO")
+boxplot(TPY ~ ORGSTR, data = datafile, horizontal = TRUE, 
+        xlab = "TPY", ylab = "ORGSTR")
+```
 
 
 
