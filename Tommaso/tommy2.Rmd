@@ -1,8 +1,11 @@
 ---
-title: "Untitled"
+title: "Linear models"
 author: "tommaso tarchi"
 date: "2023-01-17"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
 ---
 
 ```{r setup, include=FALSE}
@@ -10,9 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+## importing the dataset and omitting the missing values
 datafile <- read.csv("../WiscNursingHome.csv")
 datafile <- na.omit(datafile)
 
+## dividing data from different years
 data_2000 <- datafile[datafile$CRYEAR == 2000, ]
 data_2001 <- datafile[datafile$CRYEAR == 2001, ]
 
@@ -28,9 +33,9 @@ library(GGally)
 For the moment we just work on the data coming from the 2000 survey, to avoid dependency between observations.
 
 
-## Quantitative variables
+## Quantitative variables only
 
-First we consider just the quantitative variables.
+First we consider the quantitative variables only.
 
 Let's see the correlation:
 ```{r}
@@ -47,11 +52,13 @@ Being NUMBED the most linearly correlated variable w.r.t. PTY, we start modellin
 summary(lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
 ```
 
+The t test related to SQRFOOT does not give enough evidence against the null hypotesis. To understand better the role of the variable we can perform the analysis of variance:
 ```{r}
-anova(lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
+anova(glm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000, family = gaussian),
+      test = "Chisq")
 ```
 
-As we can see, despite being NUMBED and SQRFOOT highly correlated, it is worth including the second variable to the model. Adding the interaction, instead, seems not to give any important information to the model.
+As we can see, despite being NUMBED and SQRFOOT highly correlated, it is worth including the second variable to the model too. Adding the interaction, instead, seems not to give any important information to the model.
 
 We can also use Akaike information criterium to check this result (here we compare some of the possible combinations):
 ```{r}
@@ -65,7 +72,6 @@ AIC(lm(TPY ~ NUMBED, data = data_2000),
 ```
 
 Again the analysis indicates NUMBED as the most relevant variable and the interaction between NUMBED and SQRFOOT as basically non relevant.
-
 
 ### Models with log-transformed predictor
 
@@ -81,7 +87,7 @@ AIC(lm(TPY ~ log(NUMBED), data = data_2000),
 We cannot see any improvement.
 
 
-### Best simple linear model
+### Graphical analysis
 
 At the moment, the best model seems to be the one with just the single linear contributions of the two variables. Let's analyze the residuals:
 ```{r}
@@ -94,8 +100,27 @@ par(mfrow = c(2, 2))
 plot(fit.linear)
 ```
 
+The residuals are not exactly as we would expect from a good linear model. In particular there seem to be a couple of outliers, the residuals are not normally distributed on the edges and homoscedasticity is not satisfied.
 
-The residuals are not exactly as we would expect from a good linear model.
+Let's also try to inspect the residuals' plots for the other good models (according to AIC) we got previously:
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED, data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + SQRFOOT + NUMBED:SQRFOOT, data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + NUMBED:SQRFOOT, data = data_2000))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + log(SQRFOOT), data = data_2000))
+```
+
+None of the models above seems to satisfy the assumptions on the linear model.
 
 Let's now look at the distribution of the data:
 ```{r}
@@ -116,7 +141,8 @@ summary(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), dat
 ```
 
 ```{r}
-anova(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), data = data_2000))
+anova(glm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), data = data_2000,
+          family = gaussian), test = "Chisq")
 ```
 
 In this case even the main effect of SQRFOOT seems to be non relevant. Let's give a look at the plot of the model with just log(NUMBED) and with just log(SQRFOOT):
@@ -137,11 +163,16 @@ par(mfrow = c(2, 2))
 plot(lm(log(TPY) ~ log(SQRFOOT), data = data_2000))
 ```
 
+We look at the AIC too:
 ```{r}
-AIC(lm(log(TPY) ~ log(NUMBED), data = data_2000), lm(log(TPY) ~ log(SQRFOOT), data = data_2000))
+AIC(lm(log(TPY) ~ log(NUMBED), data = data_2000),
+    lm(log(TPY) ~ log(SQRFOOT), data = data_2000),
+    lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT), data = data_2000))
 ```
 
-Again it is confirmed that the most relevant predictor is NUMBED, but the residuals are still not good enough. On the other hand SQRFOOT seems to be less relevant but with better residuals (apart from a high leverage outlier).
+Again NUMBED seems to be a good predictor, but the residuals suggest that the assumption on the linear model are not satisfied.
+
+On the other hand SQRFOOT seems to be less relevant but with mush better residuals (apart from the high leverage outlier 331).
 
 We can also try a kind of mixed model:
 ```{r}
@@ -154,3 +185,40 @@ plot(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
 ```{r}
 AIC(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
 ```
+
+But the results are not encouraging.
+
+
+## Adding categorical variables
+
+By using the numerical variables only we were not able to obtain a good model. In particular it was not possible to build a model in which all the characteristic assumptions for linear models were met. We can then try to improve our model by adding the categorical predictors.
+
+First of all we can observe two things about the categorical variables:
+
+- MSA specifies the information given by URBAN (therefore they will be alternative variables in the model);
+
+- Information expressed by PRO e TAXEXEMPT is implicit in ORGSTR.
+
+We can also visualize the previous two observations by graphs:
+```{r}
+### roba fatta da Simone
+```
+
+
+### More genric variables
+
+For the moment let's exclude the variable MCERT and use the most "generic" variables. As a baseline we take the linear model with the higher AIC score.
+```{r}
+summary(lm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000))
+```
+
+```{r}
+anova(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000,
+          family = gaussian), test = "Chisq")
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT + SELFFUNDINS + URBAN + PRO, data = data_2000))
+```
+
