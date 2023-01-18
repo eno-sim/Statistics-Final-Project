@@ -1,0 +1,9 @@
+MODELLI LINEARI:
+
+Usando solo le variabili numeriche, abbiamo fittato vari modelli lineari, anche trasformando le variabili con il logaritmo.
+I t test su NUMBED e SQRFOOT e gli F test danno risultati positivi. Dall'analisi dei residui invece si vede che ci sono alcuni outlier che
+invalidano le ipotesi del modello lineare: in particolare i residui non sono distribuiti normalmente agli estremi (in corrispondenza
+degli outlier) e anche l'omoscedasticity non è perfettamente rispettata.
+Definendo la variabile UTILIZATION_RATE, si vede che gli outlier sono quegli ospedali che anno un sovrauso o un sottouso dei letti.
+Rimuovendo gli outlier i modelli migliorano decisamente, ma con i modelli lineari senza log si perde l'homoscedasticity. Il moglior modello
+sembra essere quello senza outlier e tutte le variabili log-trasformate.

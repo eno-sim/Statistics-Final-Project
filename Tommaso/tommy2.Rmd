@@ -135,6 +135,11 @@ As we can see all of the variables are strongly skewed.
 
 ### Models with log-transformed TPY
 
+First let's see the correlation:
+```{r}
+## fare ggpairs() con il log delle variabili
+```
+
 We see that also TPY is strongly skewed, therefore we can try to model its log-transform:
 ```{r}
 summary(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + log(NUMBED):log(SQRFOOT), data = data_2000))
@@ -205,7 +210,7 @@ We can also visualize the previous two observations by graphs:
 ```
 
 
-### More genric variables
+### More generic variables
 
 For the moment let's exclude the variable MCERT and use the most "generic" variables. As a baseline we take the linear model with the higher AIC score.
 ```{r}
