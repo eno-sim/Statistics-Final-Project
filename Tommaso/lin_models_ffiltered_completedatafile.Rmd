@@ -1,0 +1,69 @@
+---
+title: "Filtered linear models entire datafile"
+author: "tommaso tarchi"
+date: "2023-01-18"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## importing the dataset and omitting the missing values
+datafile <- read.csv("WiscNursingHome.csv")
+datafile <- na.omit(datafile)
+
+
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+```
+
+We noticed that the thing that all the outliers had in common was the high rate of utilization TPY/NUMBED. Therefore we can compute the new variable UTILIZATION_RATE and build a new dataset excluding from the observation of the year 2000 the first and the last quartiles w.r.t. to that variable (i.e. the outliers):
+```{r}
+datafile$UTILIZATION_RATE <- datafile$TPY / datafile$NUMBED
+summary(datafile$UTILIZATION_RATE)
+
+data_trunc <- datafile[datafile$UTILIZATION_RATE > 0.89 & datafile$UTILIZATION_RATE < 0.97, ]
+```
+
+
+## Quatitative variables only
+
+```{r}
+summary(lm(TPY ~ NUMBED + SQRFOOT, data = data_trunc))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(TPY ~ NUMBED + SQRFOOT, data = data_trunc))
+```
+
+Let's see if we get better residuals with log-transformed variables:
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT), data = data_trunc))
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT), data = data_trunc))
+```
+
+Still the results are not satisfactory: we managed to fix homoscedasticity but we could not get normally distributed residuals.
+
+
+## Adding categorical variables
+
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc))
+```
+```{r}
+anova(glm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc, family = gaussian),
+      test = "Chisq")
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc))
+```
