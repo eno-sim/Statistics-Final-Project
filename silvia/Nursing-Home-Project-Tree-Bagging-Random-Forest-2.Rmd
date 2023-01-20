@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-##Tree, Bagging, Random Forest \
+# Tree, Bagging, Random Forest \
 Some pre-processing steps on the dataset:
 
 ```{r}
@@ -19,7 +19,10 @@ datafile <- read.csv("WiscNursingHome.csv")
 datafile <- na.omit(datafile)
 #Factorization of the categorical variables
 datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$URBAN <- as.factor(datafile$URBAN)
 datafile$MSA <- as.factor(datafile$MSA)
+datafile$PRO <- as.factor(datafile$PRO)
+datafile$TAXEXEMPT <- as.factor(datafile$TAXEXEMPT)
 datafile$SELFFUNDINS <- as.factor(datafile$SELFFUNDINS)
 datafile$MCERT <- as.factor(datafile$MCERT)
 ```
@@ -33,6 +36,7 @@ library("Metrics")  # rmse
 library("ipred") #Bagging, first method
 library("caret") #Bagging, second method
 library("randomForest") # Random Forest
+library("plyr")
 ```
 
 Division of the dataset in two dataset: data for 2000 and data for 2001 \
@@ -44,14 +48,14 @@ data_2001 <- datafile[datafile$CRYEAR == 2001, ]
 
 Some considerations about the model evaluations For each model proposed, it is reported the RMSE (Root Mean Squared Error) as a measure of the accuracy of the model. For the RMSE, the lower the better(it is the standard deviation between the predicted values and the real values from the test dataset) \
 
-###Final results \ 
+### Final results \ 
 Best result with Trees(cp=0): RMSE2000 = 9.64, RMSE2001 = 8.51 \
 Best result with Bagging(ipred package): RMSE2000 = 9.14, RMSE2001 = 8.64 \
 Random Forest: RMSE2000 = 11.64, RMSE2001 = 13.42 \
 Best result: Regression Tree o Bagging \
 
-### Regression trees: \
-Division in training set(70%) and test set(30%) \
+## Regression trees: \
+### Random split: training set(70%) and test set(30%) \
 For 2000: \
 
 ```{r}
@@ -72,36 +76,90 @@ train2001 <- data_2001[sample, ]
 test2001 <- data_2001[!sample, ]
 ```
 
-1)Maximal complexity (cp=0) \
+### Maximal complexity (cp=0) - Random split \
 2000 \
 
 ```{r}
 set.seed(123)
-fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, method = "anova", control = rpart.control(cp = 0))
+fit_tree <- rpart(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train2000, method = "anova", control = rpart.control(cp = 0))
 printcp(fit_tree) #cp table
 plotcp(fit_tree) #plot cp values, error, splits
 plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0") #Tree plot
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2000)
 rmse(test2000$TPY, pred)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 3 variables (MSA NUMBED SQRFOOT), 14 terminal nodes. \
+
 2001 \
 
 ```{r}
-set.seed(123)
-fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, method = "anova", control = rpart.control(cp = 0))
+set.seed(123) 
+fit_tree <- rpart(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train2001, method = "anova", control = rpart.control(cp = 0))
 printcp(fit_tree) #cp table
 plotcp(fit_tree) #plot cp values, error, splits
 plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0") #Tree plot
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2001)
 rmse(test2001$TPY, pred)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
+```
+
+### Maximal complexity (cp=0) - 10 fold CV \
+2000 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2000, cut(sample(1:nrow(data_2000)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova", control = rpart.control(cp = 0))
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+2001 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2001, cut(sample(1:nrow(data_2001)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova", control = rpart.control(cp = 0))
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
 ```
 
 4 variables (MCERT MSA NUMBED ORGSTR), 14 terminal nodes. \
-2)Automatic choice of the cp \
+
+### Automatic choice of the cp (cp=) - Random split \
+
 2000 \
 
 ```{r}
@@ -112,10 +170,15 @@ plotcp(fit_tree) #plot cp values, error, splits
 plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=automatic") #Tree plot
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2000)
-rmse(test2000$TPY, pred)
+rmse
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 1 variable(NUMBED), 6 nodes \
+
 2001 \
 
 ```{r}
@@ -127,10 +190,61 @@ plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=automatic") #Tree plo
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2001)
 rmse(test2001$TPY, pred)
+SSE <- sum((pred - test2001$TPY)^2)
+SST <- sum((test2001$TPY - mean(test2001$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 1 variable (NUMBED), 6 term nodes. \
-3)Manual set of the cp=0.0017 \
+
+### Automatic choice of the cp (cp=) - 10 fold CV \
+
+2000 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2000, cut(sample(1:nrow(data_2000)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova")
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+2001 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2001, cut(sample(1:nrow(data_2001)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova")
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+
+### Manual set of the cp (cp=0.0017) - Random split \
+
 2000 \
 
 ```{r}
@@ -142,9 +256,14 @@ plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0.0017") #Tree plot
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2000)
 rmse(test2000$TPY, pred)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 2 variables (MSA, NUMBED), 12 term nodes. \
+
 2001 \
 
 ```{r}
@@ -156,9 +275,58 @@ plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0.0017") #Tree plot
 text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
 pred <- predict(fit_tree, newdata = test2001)
 rmse(test2001$TPY, pred)
+SSE <- sum((pred - test2001$TPY)^2)
+SST <- sum((test2001$TPY - mean(test2001$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 2 variables (MSA, NUMBED), 11 term nodes. \
+
+### Manual set of the cp (cp=0.0017) - 10 fold CV \
+
+2000 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2000, cut(sample(1:nrow(data_2000)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova", control = rpart.control(cp = 0.0017))
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+2001 \
+
+```{r}
+set.seed(123)
+form <- "TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR"
+folds <- split(data_2001, cut(sample(1:nrow(data_2001)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- rpart(form , train, method = "anova", control = rpart.control(cp = 0.0017))
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
 ## Bagging \
 1)ipred package \
 First, let find the best number of trees to use: \
@@ -167,12 +335,8 @@ First, let find the best number of trees to use: \
 ntree <- seq(10, 50, 2)
 rmse <- vector(mode = "numeric", length = length(ntree))
 for (i in seq_along(ntree)) {
-  # reproducibility
   set.seed(123)
-  
-  # perform bagged model
-  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, coob = TRUE, nbagg   = ntree[i])
-  # get OOB error
+  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train2000, coob = TRUE, nbagg =        ntree[i])
   rmse[i] <-fit_bag$err
 }
 
@@ -180,7 +344,7 @@ plot(ntree, rmse, type = 'l', lwd = 2)
 abline(v = 28, col = "red", lty = "dashed")
 ```
 
-For the 2000 dataseta the best number of trees is 28. \
+For the 2000 dataset the best number of trees is 28. \
 
 ```{r}
 ntree <- seq(10, 50, 2)
@@ -190,7 +354,7 @@ for (i in seq_along(ntree)) {
   set.seed(123)
   
   # perform bagged model
-  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, coob = TRUE, nbagg   = ntree[i])
+  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train2001, coob = TRUE, nbagg   = ntree[i])
   # get OOB error
   rmse[i] <-fit_bag$err
 }
@@ -199,36 +363,85 @@ plot(ntree, rmse, type = 'l', lwd = 2)
 abline(v = 16, col = "red", lty = "dashed")
 ```
 
-For the 2000 dataseta the best number of trees is 16. \
-Bagging for the 2000 with 28 trees: \
+For the 2000 dataset the best number of trees is 16. \
+
+Bagging for the 2000 with 28 trees, random split: \
 
 ```{r}
 set.seed(123)
 
 # train 
-fit_bag28 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2000, coob = TRUE)
+fit_bag28 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2000, coob = TRUE)
 
 fit_bag28
 
 pred <- predict(fit_bag28, test2000)
 rmse(pred, test2000$TPY)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
-Bagging for the 2001 with 16 trees: \
+Bagging for the 2000 with 28 trees, 10 fold CV: \
+
+```{r}
+set.seed(123)
+folds <- split(data_2000, cut(sample(1:nrow(data_2000)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train, coob = TRUE)
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+Bagging for the 2001 with 16 trees, random split: \
 
 ```{r}
 set.seed(123)
 
 # train 
-fit_bag16 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2001, coob = TRUE)
+fit_bag16 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2001, coob = TRUE)
 
 fit_bag16
 
 pred <- predict(fit_bag16, test2001)
 rmse(pred, test2001$TPY)
+SSE <- sum((pred - test2001$TPY)^2)
+SST <- sum((test2001$TPY - mean(test2001$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
-2)caret package \
+Bagging for the 2001 with 16 trees, 10 fold CV: \
+
+```{r}
+set.seed(123)
+folds <- split(data_2001, cut(sample(1:nrow(data_2001)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train, coob = TRUE)
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+2)caret package (non capisco se fa già cross validation da solo, e se si, quale dataset usare per predict)\
 2000 \
 
 ```{r}
@@ -237,7 +450,7 @@ set.seed(123)
 ctrl <- trainControl(method = "cv",  number = 10) 
 
 # CV bagged model
-fit_bag <- train(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2000, method = "treebag", trControl = ctrl, importance = TRUE)
+fit_bag <- train(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data = train2000, method = "treebag", trControl = ctrl, importance = TRUE)
 
 fit_bag
 
@@ -245,6 +458,10 @@ plot(varImp(fit_bag), 20)
 
 pred <- predict(fit_bag, test2000)
 rmse(pred, test2000$TPY)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 2001 \
@@ -263,22 +480,52 @@ plot(varImp(fit_bag), 20)
 
 pred <- predict(fit_bag, test2001)
 rmse(pred, test2001$TPY)
+SSE <- sum((pred - test2001$TPY)^2)
+SST <- sum((test2001$TPY - mean(test2001$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
 ## Random Forest \
 Random forest with 500 trees(default, but good) \
-2000 \
+2000, random split: \
 
 ```{r}
 set.seed(123)
-fit_forest <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2000, proximity=TRUE) 
+fit_forest <- randomForest(TPY ~ NUMBED + SQRFOOT + URBAN + PRO + TAXEXEMPT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2000, proximity=TRUE) 
 plot(fit_forest)
 
 pred <- predict(fit_forest, test2000)
 rmse(pred, test2000$TPY)
+SSE <- sum((pred - test2000$TPY)^2)
+SST <- sum((test2000$TPY - mean(test2000$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
-2001 \
+2000, 10 fold CV
+
+```{r}
+set.seed(123)
+folds <- split(data_2000, cut(sample(1:nrow(data_2000)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train, coob = TRUE)
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
+
+
+
+2001, random split: \
 
 ```{r}
 set.seed(123)
@@ -287,5 +534,28 @@ plot(fit_forest)
 
 pred <- predict(fit_forest, test2001)
 rmse(pred, test2001$TPY)
+SSE <- sum((pred - test2001$TPY)^2)
+SST <- sum((test2001$TPY - mean(test2001$TPY))^2)
+R_square <- 1 - SSE / SST
+R_square
 ```
 
+2001, 10 fold CV: \
+
+```{r}
+set.seed(123)
+folds <- split(data_2001, cut(sample(1:nrow(data_2001)),10))
+err <- rep(NA, length(folds))
+Rsq <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  tmp.model <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + URBAN + PRO + TAXEXEMPT + SELFFUNDINS + MCERT + ORGSTR, data=train, coob = TRUE)
+  tmp.predict <- predict(tmp.model, newdata = test)
+  err[i] <- rmse(test$TPY, tmp.predict)
+  Rsq[i] <- 1 - (sum((tmp.predict - test$TPY)^2))/ (sum((test$TPY - mean(test$TPY))^2))
+}
+print(sprintf("average rmse using k-fold cross-validation: %.3f", mean(err)))
+print(sprintf("average R squared using k-fold cross-validation: %.3f", mean(Rsq)))
+```
