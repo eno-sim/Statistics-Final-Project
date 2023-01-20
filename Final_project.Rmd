@@ -222,7 +222,18 @@ boxplot(TPY ~ ORGSTR, data = datafile, horizontal = TRUE,
         xlab = "TPY", ylab = "ORGSTR")
 ```
 
+```{r}
+par(mfrow = c(1, 2))
+barplot(prop.table(table(datafile$PRO, datafile$TAXEXEMPT), margin = 1),
+        beside=TRUE, xlab="TAX EXEMPT",col=c("gray","black"))
+legend("topright", c("Non Profit", "Profit"), cex = 0.95, bty = "n",fill=c("gray","black"))
 
+
+barplot(prop.table(table(datafile$PRO, datafile$SELFFUNDINS), margin = 1),
+        beside=TRUE, xlab="SELFUNDINS",col=c("gray","black"))
+legend("topleft", c("Non Profit", "Profit"), cex = 0.95, bty = "n",fill=c("gray","black"))
+
+```
 
 
 ##### *Data pre-processing*
