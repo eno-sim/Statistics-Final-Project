@@ -1,0 +1,168 @@
+---
+title: "Nursing Home Utilization-Tree, Bagging, Random Forest"
+author: "Silvia"
+date: '2023-01-19'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Tree, Bagging, Random Forest
+
+Some pre-processing steps on the dataset:
+
+```{r}
+#import and rename the dataset
+datafile <- read.csv("WiscNursingHome.csv")
+#Eliminate the missing values
+datafile <- na.omit(datafile)
+#Factorization of the categorical variables
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+datafile$SELFFUNDINS <- as.factor(datafile$SELFFUNDINS)
+datafile$MCERT <- as.factor(datafile$MCERT)
+```
+
+Because of the fact that our data are referred to two different years, and we can't consider the values independent from one year to another, we use the data about the 2000 as our training set, and the 2001 as the test set.
+
+```{r}
+data_2000 <- datafile[datafile$CRYEAR == 2000, ] #train
+data_2001 <- datafile[datafile$CRYEAR == 2001, ] #test
+```
+
+Some libraries:
+
+```{r}
+library("rpart") #tree
+library("rpart.plot") #tree plot
+library("Metrics")  # rmse
+library("ipred") #Bagging, first method
+library("caret") #Bagging, second method
+library("randomForest") # Random Forest
+```
+
+*Some considerations about the model evaluations*
+For each model proposed, it is reported the RMSE (Root Mean Squared Error) as a measure of the accuracy of the model. For the RMSE, the lower the better(it is the standard deviation between the predicted values and the real values from the test dataset)
+
+## Final results \
+
+Best result with Trees(cp=0): RMSE = 13.42 \
+Best result with Bagging(caret package): RMSE = 14.47 \
+Random Forest: RMSE = 13.80 \
+
+Best result: Regression Tree (ha senso?) \
+
+### Regression trees \
+
+1)Maximal complexity (cp=0)
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=data_2000, method = "anova", control = rpart.control(cp = 0))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = data_2001)
+rmse(data_2001$TPY, pred)
+```
+
+We can observe that the most complex tree we can obtain has 29 terminal nodes, but after more or less 9 splits we don't have a significant reduction of the error as the tree growns deeper.
+So, we can reduce the complexity by setting manually the cp value or by letting the algorithm to choose this value.
+For the construction of the most complex tree are used 5 variables: MCERT, MSA, NUMBED, ORGSTR and SQRFOOT.
+
+2)Automatic choice of the cp
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=data_2000, method = "anova")
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=automatic") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = data_2001)
+rmse(data_2001$TPY, pred)
+```
+The automatic choice of the cp value is cp=0.01. In this case the model is a tree with 7 terminal nodes and it is used only 1 variable, NUMBED.
+
+3)Manual set of the cp=0.0017
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=data_2000, method = "anova", control = rpart.control(cp = 0.0017))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0.0017") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = data_2001)
+rmse(data_2001$TPY, pred)
+```
+With a cp=0.0017 (this additional trial is to see the effect of another level of complexity) we have 12 terminal nodes and it uses only 1 variable, NUMBED.
+
+### Bagging \
+
+1)ipred package \
+
+First, let find the best number of trees to use
+```{r}
+ntree <- seq(10, 50, 2)
+rmse <- vector(mode = "numeric", length = length(ntree))
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # perform bagged model
+  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=data_2000, coob = TRUE, nbagg   = ntree[i])
+  # get OOB error
+  rmse[i] <-fit_bag$err
+}
+
+plot(ntree, rmse, type = 'l', lwd = 2)
+abline(v = 28, col = "red", lty = "dashed")
+```
+
+Bagging with 28 trees:
+```{r}
+set.seed(123)
+
+# train 
+fit_bag28 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=data_2000, coob = TRUE)
+
+fit_bag28
+
+pred <- predict(fit_bag28, data_2001)
+rmse(pred, data_2001$TPY)
+```
+
+2) caret package \
+
+```{r}
+# Specify 10-fold cross validation
+set.seed(123)
+ctrl <- trainControl(method = "cv",  number = 10) 
+
+# CV bagged model
+fit_bag <- train(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = data_2000, method = "treebag", trControl = ctrl, importance = TRUE)
+
+fit_bag
+
+plot(varImp(fit_bag), 20) 
+
+pred <- predict(fit_bag, data_2001)
+rmse(pred, data_2001$TPY)
+```
+### Random Forest \
+
+Random forest with 500 trees(default, but good)
+```{r}
+set.seed(123)
+fit_forest <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = data_2000, proximity=TRUE) 
+plot(fit_forest)
+
+pred <- predict(fit_forest, data_2001)
+rmse(pred, data_2001$TPY)
+```
+
+
+

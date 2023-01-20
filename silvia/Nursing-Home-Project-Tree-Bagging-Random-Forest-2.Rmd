@@ -1,0 +1,291 @@
+---
+title: "Nursing Home Project Tree Bagging Random Forest 2"
+author: "Silvia"
+date: '2023-01-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Tree, Bagging, Random Forest \
+Some pre-processing steps on the dataset:
+
+```{r}
+#import and rename the dataset
+datafile <- read.csv("WiscNursingHome.csv")
+#Eliminate the missing values
+datafile <- na.omit(datafile)
+#Factorization of the categorical variables
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+datafile$SELFFUNDINS <- as.factor(datafile$SELFFUNDINS)
+datafile$MCERT <- as.factor(datafile$MCERT)
+```
+
+Some libraries: \ 
+
+```{r}
+library("rpart") #tree
+library("rpart.plot") #tree plot
+library("Metrics")  # rmse
+library("ipred") #Bagging, first method
+library("caret") #Bagging, second method
+library("randomForest") # Random Forest
+```
+
+Division of the dataset in two dataset: data for 2000 and data for 2001 \
+
+```{r}
+data_2000 <- datafile[datafile$CRYEAR == 2000, ] 
+data_2001 <- datafile[datafile$CRYEAR == 2001, ] 
+```
+
+Some considerations about the model evaluations For each model proposed, it is reported the RMSE (Root Mean Squared Error) as a measure of the accuracy of the model. For the RMSE, the lower the better(it is the standard deviation between the predicted values and the real values from the test dataset) \
+
+###Final results \ 
+Best result with Trees(cp=0): RMSE2000 = 9.64, RMSE2001 = 8.51 \
+Best result with Bagging(ipred package): RMSE2000 = 9.14, RMSE2001 = 8.64 \
+Random Forest: RMSE2000 = 11.64, RMSE2001 = 13.42 \
+Best result: Regression Tree o Bagging \
+
+### Regression trees: \
+Division in training set(70%) and test set(30%) \
+For 2000: \
+
+```{r}
+set.seed(123)
+
+sample <- sample(c(TRUE, FALSE), nrow(data_2000), replace=TRUE, prob=c(0.7,0.3))
+train2000 <- data_2000[sample, ]
+test2000  <- data_2000[!sample, ]
+```
+
+For 2001: \
+
+```{r}
+set.seed(123)
+
+sample <- sample(c(TRUE, FALSE), nrow(data_2001), replace=TRUE, prob=c(0.7,0.3))
+train2001 <- data_2001[sample, ]
+test2001 <- data_2001[!sample, ]
+```
+
+1)Maximal complexity (cp=0) \
+2000 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, method = "anova", control = rpart.control(cp = 0))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2000)
+rmse(test2000$TPY, pred)
+```
+
+3 variables (MSA NUMBED SQRFOOT), 14 terminal nodes. \
+2001 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, method = "anova", control = rpart.control(cp = 0))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2001)
+rmse(test2001$TPY, pred)
+```
+
+4 variables (MCERT MSA NUMBED ORGSTR), 14 terminal nodes. \
+2)Automatic choice of the cp \
+2000 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, method = "anova")
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=automatic") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2000)
+rmse(test2000$TPY, pred)
+```
+
+1 variable(NUMBED), 6 nodes \
+2001 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, method = "anova")
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=automatic") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2001)
+rmse(test2001$TPY, pred)
+```
+
+1 variable (NUMBED), 6 term nodes. \
+3)Manual set of the cp=0.0017 \
+2000 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, method = "anova", control = rpart.control(cp = 0.0017))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0.0017") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2000)
+rmse(test2000$TPY, pred)
+```
+
+2 variables (MSA, NUMBED), 12 term nodes. \
+2001 \
+
+```{r}
+set.seed(123)
+fit_tree <- rpart(TPY ~NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, method = "anova", control = rpart.control(cp = 0.0017))
+printcp(fit_tree) #cp table
+plotcp(fit_tree) #plot cp values, error, splits
+plot(fit_tree, uniform = TRUE, main = "Regression Tree, cp=0.0017") #Tree plot
+text(fit_tree, use.n = TRUE, all = TRUE, cex = .8)
+pred <- predict(fit_tree, newdata = test2001)
+rmse(test2001$TPY, pred)
+```
+
+2 variables (MSA, NUMBED), 11 term nodes. \
+## Bagging \
+1)ipred package \
+First, let find the best number of trees to use: \
+
+```{r}
+ntree <- seq(10, 50, 2)
+rmse <- vector(mode = "numeric", length = length(ntree))
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # perform bagged model
+  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2000, coob = TRUE, nbagg   = ntree[i])
+  # get OOB error
+  rmse[i] <-fit_bag$err
+}
+
+plot(ntree, rmse, type = 'l', lwd = 2)
+abline(v = 28, col = "red", lty = "dashed")
+```
+
+For the 2000 dataseta the best number of trees is 28. \
+
+```{r}
+ntree <- seq(10, 50, 2)
+rmse <- vector(mode = "numeric", length = length(ntree))
+for (i in seq_along(ntree)) {
+  # reproducibility
+  set.seed(123)
+  
+  # perform bagged model
+  fit_bag <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data=train2001, coob = TRUE, nbagg   = ntree[i])
+  # get OOB error
+  rmse[i] <-fit_bag$err
+}
+
+plot(ntree, rmse, type = 'l', lwd = 2)
+abline(v = 16, col = "red", lty = "dashed")
+```
+
+For the 2000 dataseta the best number of trees is 16. \
+Bagging for the 2000 with 28 trees: \
+
+```{r}
+set.seed(123)
+
+# train 
+fit_bag28 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2000, coob = TRUE)
+
+fit_bag28
+
+pred <- predict(fit_bag28, test2000)
+rmse(pred, test2000$TPY)
+```
+
+Bagging for the 2001 with 16 trees: \
+
+```{r}
+set.seed(123)
+
+# train 
+fit_bag16 <- bagging(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, nbagg=28, data=train2001, coob = TRUE)
+
+fit_bag16
+
+pred <- predict(fit_bag16, test2001)
+rmse(pred, test2001$TPY)
+```
+
+2)caret package \
+2000 \
+
+```{r}
+# Specify 10-fold cross validation
+set.seed(123)
+ctrl <- trainControl(method = "cv",  number = 10) 
+
+# CV bagged model
+fit_bag <- train(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2000, method = "treebag", trControl = ctrl, importance = TRUE)
+
+fit_bag
+
+plot(varImp(fit_bag), 20) 
+
+pred <- predict(fit_bag, test2000)
+rmse(pred, test2000$TPY)
+```
+
+2001 \
+
+```{r}
+# Specify 10-fold cross validation
+set.seed(123)
+ctrl <- trainControl(method = "cv",  number = 10) 
+
+# CV bagged model
+fit_bag <- train(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2001, method = "treebag", trControl = ctrl, importance = TRUE)
+
+fit_bag
+
+plot(varImp(fit_bag), 20) 
+
+pred <- predict(fit_bag, test2001)
+rmse(pred, test2001$TPY)
+```
+
+## Random Forest \
+Random forest with 500 trees(default, but good) \
+2000 \
+
+```{r}
+set.seed(123)
+fit_forest <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2000, proximity=TRUE) 
+plot(fit_forest)
+
+pred <- predict(fit_forest, test2000)
+rmse(pred, test2000$TPY)
+```
+
+2001 \
+
+```{r}
+set.seed(123)
+fit_forest <- randomForest(TPY ~ NUMBED + SQRFOOT + MSA + SELFFUNDINS + MCERT + ORGSTR, data = train2001, proximity=TRUE) 
+plot(fit_forest)
+
+pred <- predict(fit_forest, test2001)
+rmse(pred, test2001$TPY)
+```
+
