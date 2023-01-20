@@ -194,6 +194,14 @@ AIC(lm(log(TPY) ~ NUMBED + log(SQRFOOT), data = data_2000))
 
 But the results are not encouraging.
 
+```{r}
+summary(lm(log(TPY) ~ SQRFOOT + NUMBED, data = data_2000))
+```
+```{r}
+summary(lm(log(TPY) ~ log(SQRFOOT) + log(NUMBED), data = data_2000))
+```
+
+
 
 ### Models with inverse and sqrt trasformed TPY
 
