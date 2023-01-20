@@ -269,7 +269,7 @@ boxplot(TPY ~ ORGSTR, data = datafile, horizontal = TRUE,
         xlab = "TPY", ylab = "ORGSTR")
 ```
 
-*From the boxplots we can see that there is not significant differences in the TPY distribution over the categorical varibles. In the case of ORGSTR seems to be significant difference between the levels 1 (for profit) and 2 for tax-exempt respect to the level (3 for gov unit) but since the level 3 have less than 100 observations (10% aprox) we can not affirm that difference is really signifficati
+*From the boxplots, we can see that there are no significant differences in the TPY distribution over the categorical variables. In the case of ORGSTR seems to be a significant difference between levels 1 (for profit) and 2 for tax-exempt with respect to the level (3 for gov unit) but since level 3 has less than 100 observations (10% approx) we can not affirm that difference is really significative.*
 
 ```{r}
 par(mfrow = c(1, 2))
