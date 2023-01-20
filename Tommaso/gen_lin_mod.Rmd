@@ -27,7 +27,17 @@ rownames(data_2001) <- 1:nrow(data_2001)
 datafile$ORGSTR <- as.factor(datafile$ORGSTR)
 datafile$MSA <- as.factor(datafile$MSA)
 ```
+```{r}
+#CHECK WHETHER OR NOT TPY IS GAMMA DISTRIBUTED
+library(MASS)
+TPY_test <- datafile$TPY[datafile$TPY < 250]
+fit <- fitdistr(datafile$TPY, "gamma")
+qgamma <- rgamma(701, shape=fit$estimate[1], rate = fit$estimate[2])
+qqplot(TPY_test, qgamma, main = "Q-Q Plot of TPY against Gamma Distribution")
+abline(0,1, col="red")
 
+
+```
 
 ## Gamma models
 
@@ -81,6 +91,7 @@ plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc, family = Gamma(l
 ```
 
 As with linear models, taking out the outliers solves homoscedasticity but not normality.
+<<<<<<< HEAD
 
 
 Let's try with the single quantitative variables and the relevant categorical ones:
