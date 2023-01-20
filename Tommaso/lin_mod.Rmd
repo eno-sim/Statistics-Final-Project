@@ -19,7 +19,9 @@ datafile <- na.omit(datafile)
 
 ## dividing data from different years
 data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+rownames(data_2000) <- 1:nrow(data_2000)
 data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+rownames(data_2001) <- 1:nrow(data_2001)
 
 datafile$ORGSTR <- as.factor(datafile$ORGSTR)
 datafile$MSA <- as.factor(datafile$MSA)
@@ -286,5 +288,20 @@ anova(fit.best, test = "Chisq")
 par(mfrow = c(2, 2))
 plot(fit.best)
 ```
+
+The plots are not bad, but we have a couple of outliers. Let's remove them:
+```{r}
+data_mod <- data_2000[-331, ]
+data_mod <- data_mod[-326, ]
+rownames(data_2000) <- 1:nrow(data_2000)
+
+fit.best.mod <- lm(log(TPY) ~ log(SQRFOOT), data = data_mod)
+summary(fit.best.mod)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.best.mod)
+```
+
 
 ***Capire se TAXEXEMPT e PRO sono correlate. In tal caso basta metterne una***

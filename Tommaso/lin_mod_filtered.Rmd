@@ -19,7 +19,9 @@ datafile <- na.omit(datafile)
 
 ## dividing data from different years
 data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+rownames(data_2000) <- 1:nrow(data_2000)
 data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+rownames(data_2001) <- 1:nrow(data_2001)
 
 datafile$ORGSTR <- as.factor(datafile$ORGSTR)
 datafile$MSA <- as.factor(datafile$MSA)
@@ -31,6 +33,7 @@ data_2000$UTILIZATION_RATE <- data_2000$TPY / data_2000$NUMBED
 summary(data_2000$UTILIZATION_RATE)
 
 data_trunc <- data_2000[data_2000$UTILIZATION_RATE > 0.89 & data_2000$UTILIZATION_RATE < 0.96, ]
+rownames(data_trunc) <- 1:nrow(data_trunc)
 ```
 
 
@@ -59,14 +62,37 @@ Still the results are not satisfactory: we managed to fix homoscedasticity but w
 
 ## Adding categorical variables
 
+Let's now try to use only NUMBED with the only categorical variables that gave a relevant result:
 ```{r}
-summary(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc))
+summary(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_trunc))
 ```
 ```{r}
-anova(glm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc, family = gaussian),
+anova(glm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_trunc, family = gaussian),
       test = "Chisq")
 ```
 ```{r}
 par(mfrow = c(2, 2))
-plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_trunc))
+plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_trunc))
 ```
+
+Still not good.
+
+At this point we must conclude that the contribute of the variable NUMBED to TPY is not linear.
+
+
+## Best model
+
+Just to check, we now fit the best model we found on the whole dataset, now excluding the outliers:
+```{r}
+fit.best.trunc <- lm(log(TPY) ~ log(SQRFOOT) + TAXEXEMPT + PRO, data = data_trunc)
+summary(fit.best.trunc)
+```
+```{r}
+anova(fit.best.trunc, test = "Chisq")
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.best.trunc)
+```
+
+The results for residuals are decently good, both for homoscedasticity and normality.

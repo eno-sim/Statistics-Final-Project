@@ -1,0 +1,143 @@
+---
+title: "Summary for linear models and generalized linear models"
+author: "tommaso tarchi"
+date: "2023-01-19"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Dataset
+
+```{r}
+## importing the dataset and omitting the missing values
+datafile <- read.csv("../WiscNursingHome.csv")
+datafile <- na.omit(datafile)
+
+## dividing data from different years
+data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+rownames(data_2000) <- 1:nrow(data_2000)
+data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+rownames(data_2001) <- 1:nrow(data_2001)
+
+datafile$ORGSTR <- as.factor(datafile$ORGSTR)
+datafile$MSA <- as.factor(datafile$MSA)
+
+data_2000$UTILIZATION_RATE <- data_2000$TPY / data_2000$NUMBED
+```
+
+
+## Linear models
+
+After having fitted various models, we found out that among the categorical variables only TAXEXEMPT, PRO and MCERT were relevant.
+
+*** aggiungere discorso sulla correlazione tra TAXEXEMPT e PRO; se sono correlati toglierne uno dai modelli di seguito***
+
+For what concerns the quantitative variables we discovered a linear relation between log(TPY) and log(SQRFOOT), resulting in the following best linear model:
+```{r}
+fit.best <- lm(log(TPY) ~ log(SQRFOOT) + ORGSTR + MCERT + TAXEXEMPT + PRO, data = data_2000)
+summary(fit.best)
+```
+
+*** internet dice che NA viene fuori quando la variabile è linearmente dipendente dalle altre del modello ***
+
+```{r}
+anova(glm(log(TPY) ~ log(SQRFOOT) + ORGSTR + MCERT + TAXEXEMPT + PRO, data = data_2000,
+          family = gaussian), test = "Chisq");
+AIC(fit.best)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.best)
+```
+
+We can observe that, apart from one or two outliers, the residuals satisfy the assumptions of homoscedasticity and normality.
+
+
+We tried to include in the model SQRFOOT before NUMBED and vice versa, and we performed ANOVA and measured AIC. The outcome was that NUMBED was a much stronger predictor than SQRFOOT. In fact, as we can see in the following two chunks, adding SQRFOOT to a model that already contains NUMBED is basically irrelevant, if not even damaging to the model (because of added complexity):
+```{r}
+anova(glm(log(TPY) ~ log(SQRFOOT) + log(NUMBED) + TAXEXEMPT + PRO, data = data_2000,
+          family = gaussian), test = "Chisq");
+anova(glm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + TAXEXEMPT + PRO, data = data_2000,
+          family = gaussian), test = "Chisq")
+```
+```{r}
+AIC(lm(log(TPY) ~ log(NUMBED) + log(SQRFOOT) + TAXEXEMPT + PRO, data = data_2000));
+AIC(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_2000))
+```
+
+We tried to include the interaction between the two variables, but it seemed to not add any relevant information.
+
+
+The problem with NUMBED as a predictor arose when we analysed the residuals' plots: in whatever way we included the variable (or its logarithm), the residuals were never meeting the assumptions of neither homoscedasticity or normality. In the following chunk we can see one of the many possible examples:
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_2000))
+```
+
+We can easily spot the presence of several outliers that seem to compromise both the assumptions. The inclusion in the model of the relevant categorical variables did not fix the problem at all.
+
+The plots suggest that these outliers are observations for which TPY is a lot lower (and sometimes higher) than expected. This means that during the year these nursing houses have been underusing (and some of them overusing) their facilities. We can measure this "misuse" by the new variable we defined UTILIZATION_RATE.
+
+
+### Removing outliers
+
+Let's inspect the UTILIZATION_RATE variable:
+```{r}
+hist(data_2000$UTILIZATION_RATE, breaks = 20);
+summary(data_2000$UTILIZATION_RATE)
+```
+
+After some attempt, we found a good bound on UTILIZATION_RATE, for which the assumptions on the residuals were met. Here is the model:
+```{r}
+data_trunc <- data_2000[data_2000$UTILIZATION_RATE > 0.85 & data_2000$UTILIZATION_RATE < 1.07, ]
+rownames(data_trunc) <- 1:nrow(data_trunc)
+```
+```{r}
+fit.trunc.best <- lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT + PRO, data = data_trunc)
+summary(fit.trunc.best)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(fit.trunc.best)
+```
+
+
+Just to check the improvement we can compare the AIC score of this model with the previously found linear model valid no all the dataset.
+
+```{r}
+# first we refit fit.best on the dataset without the outliers
+fit.best2 <- lm(log(TPY) ~ log(SQRFOOT) + TAXEXEMPT + PRO, data = data_trunc)
+
+AIC(fit.best2, fit.trunc.best)
+```
+
+We can notice the strong improvement on the model using NUMBED as a predictor instead of SQRFOOT.
+
+However we must remind the reader that the improved model is valid only on a restricted portion of the dataset (i.e. only for "reasonable" values of UTILIZATION_RATE), since for observations with more extreme values of this parameter the residuals do not meet the homoscedasticity and normality assumptions requested by the linear model's hypoteses.
+
+We are also aware of the fact that we are somehow "cheating", since (because of the way UTILIZATION_RATE is defined) we are excluding the observations that are the farthest from the linear model before even fitting the model. This "cheating" is reflected in the fact that the computation of UTILIZATION_RATE requires the knowledge of TPY itself.
+
+However, if we are able to find a proxy for UTILIZATION_RATE that does not involve the use of TPY for its computation, then we will have a couple of models fit.best and fit.trunc.best, of which the first (less precise) can be used on (almost) any observation, while the second (more precise) only to predict TPY fo observations that meet a certain requirement (that is having a certain proxy's value in a given interval).
+
+
+## Gamma models
+
+We also tried to use generalized linear models with a gamma structure of error to model TPY using NUMBED, but the results were not encouraging. Here we show an example:
+```{r}
+glm <- glm(TPY ~ NUMBED + TAXEXEMPT + PRO, data = data_2000, family = Gamma(link = "log"))
+summary(glm)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(glm)
+```
+
+
+*** capire come vanno analizzati i plot ***

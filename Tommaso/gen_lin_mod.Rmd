@@ -20,7 +20,9 @@ datafile <- na.omit(datafile)
 
 ## dividing data from different years
 data_2000 <- datafile[datafile$CRYEAR == 2000, ]
+rownames(data_2000) <- 1:nrow(data_2000)
 data_2001 <- datafile[datafile$CRYEAR == 2001, ]
+rownames(data_2001) <- 1:nrow(data_2001)
 
 datafile$ORGSTR <- as.factor(datafile$ORGSTR)
 datafile$MSA <- as.factor(datafile$MSA)
@@ -50,6 +52,7 @@ plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_2000, family = Gamma(li
 
 Still outliers' residuals do not respect homoscedasticity and normality.
 
+
 ### Without outliers
 
 ```{r}
@@ -57,6 +60,7 @@ data_2000$UTILIZATION_RATE <- data_2000$TPY / data_2000$NUMBED
 summary(data_2000$UTILIZATION_RATE)
 
 data_trunc <- data_2000[data_2000$UTILIZATION_RATE > 0.89 & data_2000$UTILIZATION_RATE < 0.96, ]
+rownames(data_trunc) <- 1:nrow(data_trunc)
 ```
 
 ```{r}
@@ -77,3 +81,23 @@ plot(glm(TPY ~ NUMBED + SQRFOOT + TAXEXEMPT, data = data_trunc, family = Gamma(l
 ```
 
 As with linear models, taking out the outliers solves homoscedasticity but not normality.
+
+
+Let's try with the single quantitative variables and the relevant categorical ones:
+```{r}
+summary(glm(TPY ~ NUMBED + PRO + TAXEXEMPT, data = data_trunc,
+            family = Gamma(link = "identity")))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ NUMBED + PRO + TAXEXEMPT, data = data_trunc, family = Gamma(link = "identity")))
+```
+
+```{r}
+summary(glm(TPY ~ SQRFOOT + PRO + TAXEXEMPT, data = data_trunc,
+            family = Gamma(link = "identity")))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(glm(TPY ~ SQRFOOT + PRO + TAXEXEMPT, data = data_trunc, family = Gamma(link = "log")))
+```
