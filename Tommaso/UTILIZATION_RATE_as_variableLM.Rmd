@@ -322,7 +322,7 @@ The only categorical variables that seem to be significant are then PRO and TAXE
 In the end the only acceptable model (that is: the only model whose residuals' plots confirm that the linear models' hypoteses are met) seems to be the following.
 ```{r}
 par(mfrow=c(2,2))
-fit.best <- lm(log(TPY) ~ log(SQRFOOT) + TAXEXEMPT + PRO + URBAN + SELFFUNDINS + PREV_UTILIZATION_RATE, data = data_2001)
+fit.best <- lm(log(TPY) ~ log(SQRFOOT) + TAXEXEMPT + PREV_UTILIZATION_RATE, data = data_2001)
 summary(fit.best)
 plot(fit.best)
 ```
@@ -335,4 +335,29 @@ par(mfrow = c(2, 2))
 plot(fit.best)
 ```
 
-***Capire se TAXEXEMPT e PRO sono correlate. In tal caso basta metterne una***
+
+
+## Using 2000 to filter 2001
+
+Here we try to use 2000's UTILIZATION_RATE to filter out outliers from 2001's data.
+
+First we plot the model for all 2001 data:
+```{r}
+summary(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_2001))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_2001))
+```
+```{r}
+data_2001_trunc <- data_2001[data_2001$PREV_UTILIZATION_RATE > 0.85 &
+                               data_2001$PREV_UTILIZATION_RATE < 1.07, ]
+summary(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_2001_trunc))
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(lm(log(TPY) ~ log(NUMBED) + TAXEXEMPT, data = data_2001_trunc))
+```
+
+
+We will use the interval found for 2000 to improve the model:
